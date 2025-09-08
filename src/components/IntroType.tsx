@@ -1,8 +1,9 @@
-'use client';
+ 'use client';
 
 import { useEffect, useRef, useState } from "react";
+type Props = { onDone?: () => void };
 
-export default function IntroType() {
+export default function IntroType({ onDone }: Props) {
   const [show, setShow] = useState(false);
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
@@ -26,7 +27,9 @@ export default function IntroType() {
       const phrase1a = "Hi";
       const phrase1b = " there.";
       const full1 = phrase1a + phrase1b;
-      const phrase2 = "Welcome!";
+      const phrase2a = "I'm Bruno.";
+      const phrase2b = " Welcome!";
+      const full2 = phrase2a + phrase2b;
 
       // Type "Hi"
       type(phrase1a, 90);
@@ -44,9 +47,16 @@ export default function IntroType() {
       }
       steps.push({ out: "", delay: 250 });
 
-      // Type "Welcome!"
-      type(phrase2, 90);
-      steps.push({ out: phrase2, delay: 900 });
+      // Type "I'm Bruno"
+      type(phrase2a, 90);
+      steps.push({ out: phrase2a, delay: 500 });
+
+      // Then type "Welcome!"
+      for (let i = 1; i <= phrase2b.length; i++) {
+        steps.push({ out: phrase2a + phrase2b.slice(0, i), delay: 90 });
+      }
+      steps.push({ out: full2, delay: 700 });
+
 
       let index = 0;
       let timer: number | undefined;
@@ -69,8 +79,16 @@ export default function IntroType() {
     } catch {
       // on any error, skip the intro (avoid blocking the page)
       setShow(false);
+      try { onDone?.(); } catch {}
     }
   }, []);
+
+  // Notify parent when completed
+  useEffect(() => {
+    if (done) {
+      try { onDone?.(); } catch {}
+    }
+  }, [done, onDone]);
 
    // LeaderLine: create animated dotted arrow from typed text to "Scroll down"
   useEffect(() => {
@@ -114,8 +132,24 @@ export default function IntroType() {
   
         window.addEventListener("scroll", reposition, { passive: true } as any);
   
+        // Continuously reposition to follow CSS animations (e.g., bouncing anchor)
+        let rafId: number;
+        const tick = () => {
+          reposition();
+          rafId = window.requestAnimationFrame(tick);
+        };
+        rafId = window.requestAnimationFrame(tick);
+  
         // position after layout/fonts settle
         setTimeout(reposition, 0);
+  
+        cleanup = () => {
+          try {
+            window.removeEventListener("scroll", reposition as any);
+            if (rafId) cancelAnimationFrame(rafId);
+            line?.remove?.();
+          } catch {}
+        };
       } catch {
         // ignore load errors (non-blocking)
       }
@@ -136,14 +170,25 @@ export default function IntroType() {
   return (
     <section className="min-h-screen grid place-items-center">
       <div className="flex flex-col items-center gap-5">
-        <div className="text-zinc-700 font-rethink tracking-tight text-5xl sm:text-6xl md:text-7xl">
-          <span aria-live="polite" aria-atomic="true">{text}</span>
-          <span aria-hidden className="caret ml-1"></span>
+        <div className="text-zinc-700 font-rethink tracking-tight text-5xl sm:text-6xl md:text-7xl flex items-center justify-center">
+          <div className="inline-block w-auto max-w-max">
+            <span aria-live="polite" aria-atomic="true">{text}</span>
+            <span aria-hidden className="caret ml-1"></span>
+          </div>
         </div>
 
         <div className={`select-none flex items-center gap-5 transition-opacity duration-500 text-5xl sm:text-6xl md:text-7xl flex-col ${done ? "opacity-100" : "opacity-0"}`}>
-          <span ref={startRef}></span>
-          <span ref={endRef} className="text-zinc-500 font-sans text-base sm:text-lg mt-2">Scroll down</span>
+          {/* Invisible start anchor (no bounce so the head near text does the motion) */}
+          <span ref={startRef} className="block w-0 h-0 pointer-events-none mb-4"></span>
+
+          {/* Visible text + invisible bouncing end anchor (keeps text static) */}
+          <div className="relative flex items-center justify-center">
+            <span
+              ref={endRef}
+              className={`${done ? "bounce-subtle" : ""} absolute -top-[0.2rem] left-1/2 -translate-x-1/2 w-0 h-0 pointer-events-none`}
+            ></span>
+            <span className="text-zinc-500 font-sans text-base sm:text-lg">Scroll down</span>
+          </div>
         </div>
       </div>
     </section>

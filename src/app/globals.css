@@ -51,3 +51,17 @@ body {
   vertical-align: -0.15em; /* align with text baseline */
 }
 
+
+/* Subtle vertical bounce for arrow anchor (uses top to avoid clobbering Tailwind transforms) */
+@keyframes subtle-bounce-top {
+  0%, 100% { top: -0.2rem; }
+  40% { top: -0.9rem; }
+  60% { top: -0.2rem; }
+}
+
+/* Reuse the same class name used in JSX */
+.bounce-subtle {
+  animation: subtle-bounce-top 1.8s ease-in-out infinite;
+  animation-delay: 600ms; /* start after the 500ms opacity fade-in */
+  will-change: top;
+}
