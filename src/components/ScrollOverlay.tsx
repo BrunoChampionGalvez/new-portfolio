@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import ProfileSlices from './ProfileSlices';
+import TiltedPortrait from './TiltedPortrait';
+import FlowingDescription, { FlowSlot } from './FlowingDescription';
 
 type Props = {
   active: boolean; // render and enable scrolling only after intro finishes
@@ -248,7 +249,7 @@ export default function ScrollOverlay({ active }: Props) {
 
   return (
     // Fixed, full-viewport overlay that captures scroll while animating
-    <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
+    <div className="fixed inset-0 z-50 pointer-events-none flex items-start justify-start">
       {/* Expanding dark zinc rectangle from center */}
       <div
         aria-hidden
@@ -304,51 +305,50 @@ export default function ScrollOverlay({ active }: Props) {
 
       {/* Profile slices reveal near the end; keep text in place */}
       {revealT > 0 && (() => {
-        // Place portrait near the top-left; ensure it sits above the text with a small gap
-        const PORTRAIT_WIDTH_VW = 26; // larger image
-        const TOP_MARGIN_VH = 10; // base distance from viewport top to portrait top
-        const GAP_PX = 62; // minimum gap between portrait bottom and text top
+        // Desired: portrait + blurb sit just above the final stacked heading text, not at absolute top.
+        const PORTRAIT_WIDTH_VW = 26;
+        const GAP_PX_ABOVE_HEADING = 40; // gap between bottom of portrait and top of heading text
+        const BLURB_OFFSET_X_VW = 2; // horizontal gap between portrait and blurb
+        const contentWidthVw = 69;
         const winH = typeof window !== 'undefined' ? window.innerHeight : 0;
-        const portraitPx = (PORTRAIT_WIDTH_VW / 100) * vw; // square, so height = width
-        const baseCenterY = winH > 0 ? (TOP_MARGIN_VH / 100) * winH + portraitPx / 2 : 0;
-        const textTop = textRef.current?.getBoundingClientRect()?.top ?? null;
-        let centerY = baseCenterY;
-        if (textTop != null && winH > 0) {
-          const maxCenter = textTop - GAP_PX - portraitPx / 2;
-          centerY = Math.min(baseCenterY, maxCenter);
+        const textTopPx = textRef.current?.getBoundingClientRect()?.top ?? null;
+        const portraitPx = (PORTRAIT_WIDTH_VW / 100) * vw;
+        // Compute portrait center so its bottom sits GAP above heading top
+        let portraitCenterYPx: number;
+        if (textTopPx != null) {
+          portraitCenterYPx = textTopPx - GAP_PX_ABOVE_HEADING - portraitPx / 2;
+          // Ensure portrait doesn't go offscreen (min 4vh from top)
+          const minCenter = winH * 0.04 + portraitPx / 2;
+          portraitCenterYPx = Math.max(minCenter, portraitCenterYPx);
+        } else {
+          portraitCenterYPx = winH * 0.18; // fallback
         }
-        const portraitTopVh = winH > 0 ? (centerY / winH) * 100 : TOP_MARGIN_VH;
-
-        // Content block fixed at top-right of the viewport
-        const contentTopVh = 3; // top positioning per request
-        const contentRightVw = 2; // right margin
-        const contentWidthVw = 46; // desired width
+        const portraitTopVh = winH > 0 ? (portraitCenterYPx / winH) * 100 : 10;
+        // Blurb aligned vertically with portrait top
+        const blurbTopVh = portraitTopVh - (winH > 0 ? (portraitPx / winH) * 50 : 0) + 2; // slight downward adjustment
+        const blurbLeftVw = 3 + PORTRAIT_WIDTH_VW + BLURB_OFFSET_X_VW;
         // Letter-by-letter reveal across two paragraphs with emphasis
         type Seg = { text: string; bold?: boolean };
         const p1: Seg[] = [
-          { text: "Hi, I'm Bruno Champion (yes, my last name is kind of peculiar 😅), and I'm a " },
-          { text: 'Full-Stack AI Developer', bold: true },
-          { text: ' with ' },
-          { text: '2 years', bold: true },
-          { text: ' of experience in building ' },
-          { text: 'complete and functional web apps.', bold: true },
+          { text: "HI, I’M BRUNO CHAMPION 👋. A " },
+          { text: 'FULL-STACK AI DEVELOPER', bold: true },
+          { text: ' WITH ' },
+          { text: '2 YEARS', bold: true },
+          { text: ' OF HANDS-ON EXPERIENCE BUILDING' },
+          { text: ' WEB APPS, AI-DRIVEN FEATURES, AND SCALABLE SOLUTIONS. I WORK SOLO AND IN ', bold: true },
+          
         ];
         const p2: Seg[] = [
-          { text: 'I have worked in ' },
-          { text: 'large and small projects', bold: true },
-          { text: ', within ' },
-          { text: 'big teams', bold: true },
-          { text: ' composed of various developers, and also ' },
-          { text: 'completely by my own.', bold: true },
-          { text: ' I strive when finding ' },
-          { text: 'creative and innovative solutions', bold: true },
-          { text: ' to ' },
-          { text: 'software architecture', bold: true },
-          { text: ' problems, and also when building ' },
-          { text: 'entirely new features', bold: true },
-          { text: ' from scratch.' },
+          { text: 'BIG TEAMS. ', bold: true },
+          { text: 'I LOVE CREATING AND ', bold: true },
         ];
-        const totalLen = [...p1, ...p2].reduce((n, s) => n + s.text.length, 0);
+        const p3: Seg[] = [
+          { text: 'INNOVA-', bold: true },
+        ];
+        const p4: Seg[] = [
+          { text: 'TING.', bold: true },
+        ];
+        const totalLen = [...p1, ...p2, ...p3, ...p4].reduce((n, s) => n + s.text.length, 0);
         const charCount = Math.floor(totalLen * revealT);
         const sliceSegs = (segs: Seg[], remaining: number) => {
           const vis: React.ReactNode[] = [];
@@ -358,8 +358,8 @@ export default function ScrollOverlay({ active }: Props) {
             const take = Math.max(0, Math.min(s.text.length, left));
             const visTxt = s.text.slice(0, take);
             const hidTxt = s.text.slice(take);
-            const Tag: any = s.bold ? 'strong' : 'span';
-            const textColor = s.bold ? 'var(--color-zinc-100)' : 'var(--color-zinc-300)';
+            const Tag: any = 'strong';
+            const textColor = s.bold ? 'var(--color-zinc-200)' : 'var(--color-zinc-500)';
             if (visTxt) vis.push(<Tag key={`v-${idx}`} style={{ color: textColor }}>{visTxt}</Tag>);
             if (hidTxt) hid.push(<Tag key={`h-${idx}`} className="opacity-0 select-none">{hidTxt}</Tag>);
             left -= take;
@@ -374,31 +374,52 @@ export default function ScrollOverlay({ active }: Props) {
         const EMAIL = 'bruno@example.com'; // TODO: set your email
         return (
           <>
-            <ProfileSlices
+            <TiltedPortrait
               t={revealT}
-              leftVw={1}
+              leftVw={2}
               topVh={portraitTopVh}
               widthVw={PORTRAIT_WIDTH_VW}
               alt={"Bruno's portrait"}
             />
-            {/* Blurb + actions at top-right; enable pointer events for buttons */}
-            <div
-              className="absolute pointer-events-auto text-zinc-100"
-              style={{
-                right: `${contentRightVw}vw`,
-                top: `${contentTopVh}vh`,
-                width: `${contentWidthVw}vw`,
-                transform: 'translateY(0)',
-              }}
-            >
-              <p className="text-base sm:text-lg md:text-xl leading-relaxed">{part1.vis}{part1.hid}</p>
-              <p className="mt-3 text-base sm:text-lg md:text-xl leading-relaxed">{part2.vis}{part2.hid}</p>
-              <div className="mt-4 flex items-center gap-3">
-                {/* Book a Free Meeting */}
+            <div className="pointer-events-auto absolute inset-0">
+              {/* Flowing background description occupying free-space slots */}
+              {(() => {
+  const p1Text = p1.map(s=>s.text).join("");
+  const p2Text = p2.map(s=>s.text).join("");
+  const p3Text = p3.map(s=>s.text).join("");
+  const p4Text = p4.map(s=>s.text).join("");
+  const flowText = `${p1Text} ${p2Text} ${p3Text} ${p4Text}`.replace(/\s+/g,' ').trim();
+        // Exactly two slots: primary paragraph area + secondary area
+                const slots: FlowSlot[] = [
+                  { leftVw: blurbLeftVw, topVh: 3, widthVw: contentWidthVw, heightVh: 50 },
+                  { leftVw: 70, topVh: 53, widthVw: 30, heightVh: 65 },
+                  { leftVw: 82, topVh: 78, widthVw: 20, heightVh: 65 },
+                  { leftVw: 82, topVh: 87, widthVw: 15, heightVh: 65 },
+                ];
+                const highlightWords = [
+                  "i’m", 'bruno', 'champion', 'full-stack', 'ai', 'developer', '2', 'years', 'led', 'big', 'teams',
+                  'own', 'on', 'my', 'tackling', 'ai-driven', 'web', 'apps', 'large', 'software', 'challenges', 'creative', 'solutions', 'bringing', 'new', 'life', 'innovating', 'creating', 'innova-', 'ting',
+                ];
+                return (
+                  <FlowingDescription
+                    text={flowText}
+                    revealT={revealT}
+                    slots={slots}
+                    className="font-inter text-zinc-500 tracking-tight"
+                    lineHeight={1.15}
+                    highlightWords={highlightWords}
+                    highlightColor={'var(--color-zinc-400)'}
+          collapseToSingle={false}
+                  slotTexts={[p1Text, p2Text, p3Text, p4Text]}
+                  />
+                );
+              })()}
+              {/*<div className="absolute" style={{ left: `${blurbLeftVw}vw`, top: `${portraitTopVh + 4}vh`}}>
+              <div className="flex items-center gap-3" style={{ opacity: btnOpacity, transition: 'opacity 120ms linear' }}>
                 <a
                   href="#book"
                   className="inline-flex items-center gap-2 rounded-md bg-zinc-100 text-zinc-800 px-3 py-2 text-sm font-medium hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300"
-                  style={{ opacity: btnOpacity, transition: 'opacity 120ms linear' }}
+                  style={{ }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -408,13 +429,12 @@ export default function ScrollOverlay({ active }: Props) {
                   </svg>
                   <span>Book a Free Meeting</span>
                 </a>
-                {/* LinkedIn icon button with tooltip */}
                 <a
                   href={LINKEDIN_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="relative group inline-flex items-center justify-center rounded-md border border-zinc-400/60 p-2 hover:bg-zinc-700"
-                  style={{ opacity: btnOpacity, transition: 'opacity 120ms linear' }}
+                  style={{ }}
                   aria-label="Go to Bruno's Linkedin"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -422,14 +442,11 @@ export default function ScrollOverlay({ active }: Props) {
                   </svg>
                   <span className="pointer-events-none absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-100 opacity-0 transition-opacity group-hover:opacity-100">Go to Bruno's Linkedin</span>
                 </a>
-                {/* Mail icon button with tooltip + copy */}
                 <button
                   type="button"
-                  onClick={() => {
-                    try { navigator.clipboard?.writeText(EMAIL); } catch {}
-                  }}
-                  className="relative group inline-flex items-center justify-center rounded-md border border-zinc-400/60 p-2 hover:bg-zinc-700"
-                  style={{ opacity: btnOpacity, transition: 'opacity 120ms linear' }}
+                  onClick={() => { try { navigator.clipboard?.writeText(EMAIL); } catch {} }}
+                  className="relative group inline-flex items-center justify-center rounded-md border border-zinc-400/60 p-2 hover:bg-zinc-700 cursor-pointer"
+                  style={{ }}
                   aria-label="Copy email"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -439,6 +456,7 @@ export default function ScrollOverlay({ active }: Props) {
                   <span className="pointer-events-none absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-100 opacity-0 transition-opacity group-hover:opacity-100">Copy email</span>
                 </button>
               </div>
+              </div>*/}
             </div>
           </>
         );

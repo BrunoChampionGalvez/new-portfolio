@@ -36,6 +36,14 @@ body {
   font-style: normal;
 }
 
+/* Inter font utility (using next/font variable) */
+@utility font-inter {
+  font-family: var(--font-inter);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+}
+
 /* Blinking caret (step-wise, like a regular input caret) */
 @keyframes caret-blink {
   0%, 49% { opacity: 1; }
